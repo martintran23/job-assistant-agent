@@ -1,47 +1,35 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, File, UploadFile, Body
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import File, UploadFile
-from fastapi import HTTPException
 from pydantic import BaseModel
 from typing import List
+import httpx
+import os
+import json
+from dotenv import load_dotenv
+
+load_dotenv()  # load environment variables from .env file if present
 
 app = FastAPI()
 
-# Allow frontend (if running on file:// or localhost)
+# Allow frontend requests (adjust origins for production)
 app.add_middleware(
     CORSMiddleware,
-    allow_origin=["*"], # Use specific origins in production
+    allow_origins=["*"],  # Restrict in production
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"]
 )
 
+# Data models
 class ResumeRequest(BaseModel):
     resume_text: str
     job_description: str
 
-@app.post("/api/resume/analyze")
-def analyze_resume(data: ResumeRequest):
-    #Placeholder scoring logic
-    return {
-        "match_score": 90,
-        "suggestions": [
-            "Add more keywords from the job description.",
-            "Highlight your project management experience."
-        ]
-    }
+class StatusUpdate(BaseModel):
+    id: int
+    status: str
 
-@app.post("/api/resume/upload")
-async def upload_resume(file: UploadFile = File(...)):
-    contents = await file.read()
-    text = contents.decode("utf-8") # Assuming plain text or .txt for now
-
-    # TODO: save or process the text
-    return {
-        "filename": file.filename,
-        "content_preview": text[:300]
-    }
-
+# In-memory applications storage (replace with DB in production)
 applications = [
     {"id": 1, "company": "OpenAI", "role": "ML Engineer", "status": "Interview"},
     {"id": 2, "company": "Google", "role": "Frontend Dev", "status": "Applied"},
@@ -50,14 +38,83 @@ applications = [
     {"id": 5, "company": "Netflix", "role": "Data Engineer", "status": "Rejected"},
 ]
 
+# DeepSeek API config from env
+DEEPSEEK_API_URL = os.getenv("DEEPSEEK_API_URL")
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+
+async def call_deepseek(prompt: str):
+    headers = {
+        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "deepseek-chat",  # Adjust model name if needed
+        "messages": [
+            {"role": "system", "content": "You are a job application assistant."},
+            {"role": "user", "content": prompt}
+        ],
+        "temperature": 0.7,
+        "max_tokens": 512
+    }
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(DEEPSEEK_API_URL, headers=headers, json=payload)
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"]
+
+# Resume analyze endpoint (using DeepSeek)
+@app.post("/api/resume/analyze")
+async def analyze_resume(data: ResumeRequest):
+    prompt = f"""
+Compare the following resume to the job description.
+Give a match score out of 100 and suggest 3 improvements.
+
+Resume:
+{data.resume_text}
+
+Job Description:
+{data.job_description}
+
+Return only JSON in this format:
+{{"match_score": 87, "suggestions": ["Fix X", "Improve Y", "Add Z"]}}
+    """
+    raw_output = await call_deepseek(prompt)
+
+    try:
+        result = json.loads(raw_output)
+        return result
+    except Exception:
+        return {
+            "match_score": 0,
+            "suggestions": [
+                "Failed to parse DeepSeek response.",
+                "Raw output:",
+                raw_output
+            ]
+        }
+
+# Resume upload endpoint
+@app.post("/api/resume/upload")
+async def upload_resume(file: UploadFile = File(...)):
+    contents = await file.read()
+    try:
+        text = contents.decode("utf-8")  # Assumes .txt files for now
+    except UnicodeDecodeError:
+        text = "<Could not decode file contents>"
+
+    # TODO: Save/process the text if needed
+
+    return {
+        "filename": file.filename,
+        "content_preview": text[:300]
+    }
+
+# Get all applications for dashboard
 @app.get("/api/dashboard")
 def get_dashboard():
     return {"applications": applications}
 
-class StatusUpdate(BaseModel):
-    id: int
-    status: str
-
+# Update status of one application
 @app.post("/api/dashboard/update")
 def update_status(update: StatusUpdate):
     for app in applications:
