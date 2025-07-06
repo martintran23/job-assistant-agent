@@ -48,10 +48,14 @@ async function loadDashboard() {
 
   const container = document.getElementById("dashboard");
   container.innerHTML = statuses.map(status => `
-    <div class="column">
+    <div class="column"
+         ondragover="event.preventDefault()"
+         ondrop="handleDrop(event, '${status}')">
       <h3>${status}</h3>
       ${grouped[status].map(app => `
-        <div class="app-card">
+        <div class="app-card"
+             draggable="true"
+             ondragstart="handleDragStart(event, ${app.id})">
           <strong>${app.company}</strong><br />
           <span>${app.role}</span><br />
           <label>Status:</label>
@@ -64,6 +68,7 @@ async function loadDashboard() {
   `).join('');
 }
 
+
 async function updateStatus(id, newStatus) {
   await fetch("http://localhost:8000/api/dashboard/update", {
     method: "POST",
@@ -73,4 +78,19 @@ async function updateStatus(id, newStatus) {
 
   // Reload dashboard to reflect updated status
   loadDashboard();
+}
+
+let draggedAppId = null;
+
+function handleDragStart(event, appId) {
+  draggedAppId = appId;
+  event.dataTransfer.effectAllowed = "move";
+}
+
+function handleDrop(event, newStatus) {
+  event.preventDefault();
+  if (draggedAppId !== null) {
+    updateStatus(draggedAppId, newStatus);
+    draggedAppId = null;
+  }
 }

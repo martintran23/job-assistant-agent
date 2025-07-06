@@ -33,3 +33,15 @@
   font-weight: bold;
   color: #555;
 }
+
+.app-card[draggable="true"] {
+  cursor: grab;
+}
+
+.column {
+  transition: background 0.2s;
+}
+
+.column.drag-over {
+  background-color: #e0f7fa;
+}
