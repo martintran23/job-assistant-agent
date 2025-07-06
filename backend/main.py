@@ -62,6 +62,10 @@ async def call_deepseek(prompt: str):
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]
 
+@app.get("/")
+def root():
+    return {"message": "Job Application Assistant API is running!"}
+
 # Resume analyze endpoint (using DeepSeek)
 @app.post("/api/resume/analyze")
 async def analyze_resume(data: ResumeRequest):
