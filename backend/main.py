@@ -6,6 +6,8 @@ import httpx
 import os
 import json
 from dotenv import load_dotenv
+import pdfplumber
+from io import BytesIO
 
 load_dotenv()  # load environment variables from .env file if present
 
@@ -100,13 +102,15 @@ Return only JSON in this format:
 # Resume upload endpoint
 @app.post("/api/resume/upload")
 async def upload_resume(file: UploadFile = File(...)):
-    contents = await file.read()
-    try:
-        text = contents.decode("utf-8")  # Assumes .txt files for now
-    except UnicodeDecodeError:
-        text = "<Could not decode file contents>"
-
-    # TODO: Save/process the text if needed
+    if file.filename.endswith(".pdf"):
+        with pdfplumber.open(BytesIO(await file.read())) as pdf:
+            text = "\n".join([page.extract_text() for page in pdf.pages if page.extract_text()])
+    else:
+        contents = await file.read()
+        try:
+            text = contents.decode("utf-8")
+        except Exception:
+            return {"filename": file.filename, "content_preview": "<Could not decode file contents>"}
 
     return {
         "filename": file.filename,
