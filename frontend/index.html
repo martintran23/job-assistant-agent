@@ -1,0 +1,35 @@
+<!DOCTYPE html> 
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Job App Assistant</title>
+    <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+    <h1>Resume Analyzer</h1>
+
+    <!-- 🔽 Resume Upload Section -->
+    <h2>Upload Your Resume</h2>
+    <input type="file" id="resumeFile" accept=".txt,.pdf,.doc,.docx" />
+    <button onclick="uploadResume()">Upload Resume</button>
+    <pre id="uploadResult"></pre>
+
+    <hr />
+
+    <!-- 🧠 Resume Analyzer Section -->
+    <h2>Paste Resume + Job Description</h2>
+    <textarea id="resume" placeholder="Paste your resume here"></textarea>
+    <textarea id="jd" placeholder="Paste job description here"></textarea>
+    <button onclick="analyze()">Analyze</button>
+    <div id="result"></div> <!-- 🔼 Move this here for clarity -->
+
+    <hr />
+
+    <!-- 📋 Application Dashboard Section -->
+    <h2>Application Dashboard</h2>
+    <div id="dashboard" class="dashboard-container"></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
