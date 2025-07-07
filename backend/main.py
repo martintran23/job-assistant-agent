@@ -6,6 +6,7 @@ import json
 from dotenv import load_dotenv
 import pdfplumber
 from io import BytesIO
+import re
 
 # Azure SDK imports
 from azure.ai.inference import ChatCompletionsClient
@@ -90,23 +91,33 @@ Resume:
 Job Description:
 {data.job_description}
 
-Return only JSON in this format:
+Return ONLY a JSON object in EXACTLY this format with no extra explanation or text:
 {{"match_score": 87, "suggestions": ["Fix X", "Improve Y", "Add Z"]}}
-    """
+"""
+
     raw_output = await call_deepseek(prompt)
+    print("DeepSeek raw output:", raw_output)  # debug log
 
     try:
+        # Try parsing raw output directly
         result = json.loads(raw_output)
         return result
-    except Exception:
-        return {
-            "match_score": 0,
-            "suggestions": [
-                "Failed to parse DeepSeek response.",
-                "Raw output:",
-                raw_output
-            ]
-        }
+    except json.JSONDecodeError:
+        # Try extracting JSON substring with regex if parsing fails
+        try:
+            json_text = re.search(r"\{.*\}", raw_output, re.DOTALL).group()
+            result = json.loads(json_text)
+            return result
+        except Exception as e:
+            return {
+                "match_score": 0,
+                "suggestions": [
+                    "Failed to parse DeepSeek response.",
+                    f"Parsing error: {str(e)}",
+                    "Raw output:",
+                    raw_output
+                ]
+            }
 
 # Resume upload endpoint
 @app.post("/api/resume/upload")
