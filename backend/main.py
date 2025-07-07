@@ -3,10 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import os
 import json
+import re
 from dotenv import load_dotenv
 import pdfplumber
 from io import BytesIO
-import re
 
 # Azure SDK imports
 from azure.ai.inference import ChatCompletionsClient
@@ -56,8 +56,21 @@ client = ChatCompletionsClient(
     api_version="2024-05-01-preview"
 )
 
+def extract_json(text: str):
+    start = text.find('{')
+    while start != -1:
+        end = text.find('}', start)
+        while end != -1:
+            candidate = text[start:end+1]
+            try:
+                json.loads(candidate)
+                return candidate
+            except json.JSONDecodeError:
+                end = text.find('}', end+1)
+        start = text.find('{', start+1)
+    return None
+
 async def call_deepseek(prompt: str):
-    # The Azure SDK call is synchronous, so we wrap it for async usage
     import asyncio
     loop = asyncio.get_event_loop()
 
@@ -91,33 +104,41 @@ Resume:
 Job Description:
 {data.job_description}
 
-Return ONLY a JSON object in EXACTLY this format with no extra explanation or text:
-{{"match_score": 87, "suggestions": ["Fix X", "Improve Y", "Add Z"]}}
-"""
+Return ONLY a JSON object EXACTLY like this (no other text or explanation):
+
+{{
+  "match_score": 87,
+  "suggestions": ["Fix X", "Improve Y", "Add Z"]
+}}
+    """
 
     raw_output = await call_deepseek(prompt)
-    print("DeepSeek raw output:", raw_output)  # debug log
 
-    try:
-        # Try parsing raw output directly
-        result = json.loads(raw_output)
-        return result
-    except json.JSONDecodeError:
-        # Try extracting JSON substring with regex if parsing fails
+    # Try extracting JSON from raw output
+    json_text = extract_json(raw_output)
+    if json_text:
         try:
-            json_text = re.search(r"\{.*\}", raw_output, re.DOTALL).group()
             result = json.loads(json_text)
             return result
         except Exception as e:
             return {
                 "match_score": 0,
                 "suggestions": [
-                    "Failed to parse DeepSeek response.",
-                    f"Parsing error: {str(e)}",
+                    "Failed to parse extracted JSON.",
+                    f"Error: {str(e)}",
                     "Raw output:",
                     raw_output
                 ]
             }
+    else:
+        return {
+            "match_score": 0,
+            "suggestions": [
+                "Failed to find JSON in the DeepSeek response.",
+                "Raw output:",
+                raw_output
+            ]
+        }
 
 # Resume upload endpoint
 @app.post("/api/resume/upload")
