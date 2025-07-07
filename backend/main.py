@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, File, UploadFile, Body
+from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List
@@ -9,20 +9,18 @@ from dotenv import load_dotenv
 import pdfplumber
 from io import BytesIO
 
-load_dotenv()  # load environment variables from .env file if present
+load_dotenv()
 
 app = FastAPI()
 
-# Allow frontend requests (adjust origins for production)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restrict in production
+    allow_origins=["*"],  # Use specific origin in production
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
 
-# Data models
 class ResumeRequest(BaseModel):
     resume_text: str
     job_description: str
@@ -31,7 +29,6 @@ class StatusUpdate(BaseModel):
     id: int
     status: str
 
-# In-memory applications storage (replace with DB in production)
 applications = [
     {"id": 1, "company": "OpenAI", "role": "ML Engineer", "status": "Interview"},
     {"id": 2, "company": "Google", "role": "Frontend Dev", "status": "Applied"},
@@ -40,27 +37,28 @@ applications = [
     {"id": 5, "company": "Netflix", "role": "Data Engineer", "status": "Rejected"},
 ]
 
-# DeepSeek API config from env
-DEEPSEEK_API_URL = os.getenv("DEEPSEEK_API_URL")
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+AZURE_OPENAI_API_URL = os.getenv("AZURE_OPENAI_API_URL")
+AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
+AZURE_DEPLOYMENT_NAME = os.getenv("AZURE_DEPLOYMENT_NAME")  # e.g., "gpt-4"
 
-async def call_deepseek(prompt: str):
+async def call_azure_openai(prompt: str):
     headers = {
-        "Authorization": f"Bearer {DEEPSEEK_API_KEY}",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "api-key": AZURE_OPENAI_API_KEY,
     }
     payload = {
-        "model": "deepseek-chat",  # Adjust model name if needed
         "messages": [
             {"role": "system", "content": "You are a job application assistant."},
-            {"role": "user", "content": prompt}
+            {"role": "user", "content": prompt},
         ],
         "temperature": 0.7,
-        "max_tokens": 512
+        "max_tokens": 512,
     }
 
+    url = f"{AZURE_OPENAI_API_URL}/openai/deployments/{AZURE_DEPLOYMENT_NAME}/chat/completions?api-version=2024-05-01-preview"
+
     async with httpx.AsyncClient() as client:
-        response = await client.post(DEEPSEEK_API_URL, headers=headers, json=payload)
+        response = await client.post(url, headers=headers, json=payload)
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]
 
@@ -68,7 +66,6 @@ async def call_deepseek(prompt: str):
 def root():
     return {"message": "Job Application Assistant API is running!"}
 
-# Resume analyze endpoint (using DeepSeek)
 @app.post("/api/resume/analyze")
 async def analyze_resume(data: ResumeRequest):
     prompt = f"""
@@ -83,8 +80,8 @@ Job Description:
 
 Return only JSON in this format:
 {{"match_score": 87, "suggestions": ["Fix X", "Improve Y", "Add Z"]}}
-    """
-    raw_output = await call_deepseek(prompt)
+"""
+    raw_output = await call_azure_openai(prompt)
 
     try:
         result = json.loads(raw_output)
@@ -93,13 +90,12 @@ Return only JSON in this format:
         return {
             "match_score": 0,
             "suggestions": [
-                "Failed to parse DeepSeek response.",
+                "Failed to parse response.",
                 "Raw output:",
                 raw_output
             ]
         }
 
-# Resume upload endpoint
 @app.post("/api/resume/upload")
 async def upload_resume(file: UploadFile = File(...)):
     if file.filename.endswith(".pdf"):
@@ -117,12 +113,10 @@ async def upload_resume(file: UploadFile = File(...)):
         "content_preview": text[:300]
     }
 
-# Get all applications for dashboard
 @app.get("/api/dashboard")
 def get_dashboard():
     return {"applications": applications}
 
-# Update status of one application
 @app.post("/api/dashboard/update")
 def update_status(update: StatusUpdate):
     for app in applications:

@@ -19,10 +19,18 @@ async function analyze() {
 
     const data = await res.json();
 
-    document.getElementById("result").innerHTML = `
-      <h3>Match Score: ${data.match_score}%</h3>
-      <ul>${data.suggestions.map(s => `<li>${s}</li>`).join('')}</ul>
-    `;
+    if (Array.isArray(data.suggestions)) {
+      document.getElementById("result").innerHTML = `
+        <h3>Match Score: ${data.match_score}%</h3>
+        <ul>${data.suggestions.map(s => `<li>${s}</li>`).join('')}</ul>
+      `;
+    } else {
+      document.getElementById("result").innerHTML = `
+        <h3>Match Score: ${data.match_score}%</h3>
+        <p>${data.suggestions?.join("<br>")}</p>
+      `;
+    }
+
   } catch (err) {
     console.error("Analyze failed:", err);
     document.getElementById("result").innerText = "An error occurred during analysis.";
