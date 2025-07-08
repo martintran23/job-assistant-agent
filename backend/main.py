@@ -10,6 +10,7 @@ import pdfplumber
 from io import BytesIO
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 # Azure SDK imports
 from azure.ai.inference import ChatCompletionsClient
@@ -209,18 +210,30 @@ async def upload_resume(file: UploadFile = File(...)):
 
     parsed_data = parse_resume(text)
 
-    query = user_profiles.insert().values(
+    # UPSERT logic to avoid duplicate emails
+    insert_stmt = pg_insert(user_profiles).values(
         full_name=parsed_data["full_name"] or "Unknown",
         email=parsed_data["email"],
         phone=parsed_data["phone"],
         education=parsed_data["education"],
         work_history=parsed_data["work_history"]
     )
-    record_id = await database.execute(query)
+    update_stmt = insert_stmt.on_conflict_do_update(
+        index_elements=["email"],
+        set_={
+            "full_name": insert_stmt.excluded.full_name,
+            "phone": insert_stmt.excluded.phone,
+            "education": insert_stmt.excluded.education,
+            "work_history": insert_stmt.excluded.work_history,
+        }
+    )
+
+    record_id = await database.execute(update_stmt)
 
     return {
         "id": record_id,
-        "parsed_data": parsed_data
+        "parsed_data": parsed_data,
+        "content_preview": text[:300]
     }
 
 @app.get("/api/dashboard")

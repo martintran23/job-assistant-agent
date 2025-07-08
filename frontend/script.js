@@ -27,7 +27,7 @@ async function analyze() {
     } else {
       document.getElementById("result").innerHTML = `
         <h3>Match Score: ${data.match_score}%</h3>
-        <p>${data.suggestions?.join("<br>")}</p>
+        <p>${(data.suggestions || []).join("<br>")}</p>
       `;
     }
 
@@ -41,6 +41,11 @@ async function analyze() {
 async function uploadResume() {
   const fileInput = document.getElementById("resumeFile");
   const file = fileInput.files[0];
+  if (!file) {
+    alert("Please select a resume to upload.");
+    return;
+  }
+
   const formData = new FormData();
   formData.append("file", file);
 
@@ -51,7 +56,13 @@ async function uploadResume() {
     });
 
     const data = await res.json();
-    document.getElementById("uploadResult").innerText = `Preview:\n${data.content_preview}`;
+
+    if (data.content_preview) {
+      document.getElementById("uploadResult").innerText = `Preview:\n${data.content_preview}`;
+    } else {
+      document.getElementById("uploadResult").innerText = "Resume uploaded, but no preview available.";
+    }
+
   } catch (err) {
     console.error("Upload failed:", err);
     document.getElementById("uploadResult").innerText = "Failed to upload resume.";
@@ -65,8 +76,7 @@ async function loadDashboard() {
     const data = await res.json();
 
     const statuses = ["Applied", "Interview", "Rejected"];
-    const grouped = {};
-    statuses.forEach(status => grouped[status] = []);
+    const grouped = { Applied: [], Interview: [], Rejected: [] };
 
     data.applications.forEach(app => {
       if (grouped[app.status]) {
