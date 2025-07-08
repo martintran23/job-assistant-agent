@@ -1,15 +1,14 @@
-from fastapi import FastAPI, HTTPException, File, UploadFile, status
+from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from database import database
 from models import user_profiles
 from pydantic import BaseModel
-from typing import Optional
 import os
 import json
+import re
 from dotenv import load_dotenv
 import pdfplumber
 from io import BytesIO
-from contextlib import asynccontextmanager
 
 # Azure SDK imports
 from azure.ai.inference import ChatCompletionsClient
@@ -18,13 +17,7 @@ from azure.core.credentials import AzureKeyCredential
 
 load_dotenv()  # load environment variables from .env file if present
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    await database.connect()
-    yield
-    await database.disconnect()
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
 # Allow frontend requests (adjust origins for production)
 app.add_middleware(
@@ -35,7 +28,7 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# Data models for API
+# Data models
 class ResumeRequest(BaseModel):
     resume_text: str
     job_description: str
@@ -43,13 +36,6 @@ class ResumeRequest(BaseModel):
 class StatusUpdate(BaseModel):
     id: int
     status: str
-
-class UserProfile(BaseModel):
-    full_name: str
-    email: str
-    phone: Optional[str] = None
-    work_history: Optional[str] = None
-    education: Optional[str] = None
 
 # In-memory applications storage (replace with DB in production)
 applications = [
@@ -188,7 +174,22 @@ def update_status(update: StatusUpdate):
             return {"success": True, "updated": app}
     raise HTTPException(status_code=404, detail="Application not found")
 
-@app.post("/profile/", status_code=status.HTTP_201_CREATED)
+class UserProfile(BaseModel):
+    full_name: str
+    email: str
+    phone: str | None = None
+    work_history: str | None = None
+    education: str | None = None
+
+@app.on_event("startup")
+async def startup():
+    await database.connect()
+
+@app.on_event("shutdown")
+async def shutdown():
+    await database.disconnect()
+
+@app.post("/profile/")
 async def create_profile(profile: UserProfile):
     query = user_profiles.insert().values(
         full_name=profile.full_name,
@@ -197,8 +198,5 @@ async def create_profile(profile: UserProfile):
         work_history=profile.work_history,
         education=profile.education
     )
-    try:
-        last_record_id = await database.execute(query)
-        return {**profile.dict(), "id": last_record_id}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"DB Insert failed: {str(e)}")
+    last_record_id = await database.execute(query)
+    return {**profile.model_dump(), "id": last_record_id}

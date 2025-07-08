@@ -6,10 +6,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-DATABASE_URL = os.getenv("DATABASE_URL")  # e.g. postgresql://user:password@localhost:5432/dbname
+DATABASE_URL = os.getenv("DATABASE_URL")
 
+# Async database connection via databases package
 database = Database(DATABASE_URL)
-metadata = MetaData()
 
-# Optional: create an engine for creating tables via SQLAlchemy
+# SQLAlchemy engine and metadata for table creation and ORM
 engine = create_engine(DATABASE_URL)
+metadata = MetaData()
