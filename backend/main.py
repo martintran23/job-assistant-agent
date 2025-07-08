@@ -1,25 +1,31 @@
 from fastapi import FastAPI, HTTPException, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 from database import database
 from models import user_profiles
-from pydantic import BaseModel
 import os
 import json
 import re
-from dotenv import load_dotenv
 import pdfplumber
 from io import BytesIO
+from dotenv import load_dotenv
+from contextlib import asynccontextmanager
 
 # Azure SDK imports
 from azure.ai.inference import ChatCompletionsClient
 from azure.ai.inference.models import SystemMessage, UserMessage
 from azure.core.credentials import AzureKeyCredential
 
-load_dotenv()  # load environment variables from .env file if present
+load_dotenv()
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await database.connect()
+    yield
+    await database.disconnect()
 
-# Allow frontend requests (adjust origins for production)
+app = FastAPI(lifespan=lifespan)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Restrict in production
@@ -28,7 +34,17 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# Data models
+# Azure OpenAI config
+AZURE_OPENAI_API_URL = os.getenv("AZURE_OPENAI_API_URL") + "/models"
+AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
+AZURE_DEPLOYMENT_NAME = os.getenv("AZURE_DEPLOYMENT_NAME")
+
+client = ChatCompletionsClient(
+    endpoint=AZURE_OPENAI_API_URL,
+    credential=AzureKeyCredential(AZURE_OPENAI_API_KEY),
+    api_version="2024-05-01-preview"
+)
+
 class ResumeRequest(BaseModel):
     resume_text: str
     job_description: str
@@ -37,7 +53,13 @@ class StatusUpdate(BaseModel):
     id: int
     status: str
 
-# In-memory applications storage (replace with DB in production)
+class UserProfile(BaseModel):
+    full_name: str
+    email: str
+    phone: str | None = None
+    work_history: str | None = None
+    education: str | None = None
+
 applications = [
     {"id": 1, "company": "OpenAI", "role": "ML Engineer", "status": "Interview"},
     {"id": 2, "company": "Google", "role": "Frontend Dev", "status": "Applied"},
@@ -45,18 +67,6 @@ applications = [
     {"id": 4, "company": "Meta", "role": "UX Designer", "status": "Applied"},
     {"id": 5, "company": "Netflix", "role": "Data Engineer", "status": "Rejected"},
 ]
-
-# Azure OpenAI/DeepSeek config from env
-AZURE_OPENAI_API_URL = os.getenv("AZURE_OPENAI_API_URL") + "/models"
-AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
-AZURE_DEPLOYMENT_NAME = os.getenv("AZURE_DEPLOYMENT_NAME")
-
-# Create Azure client (reuse this for all calls)
-client = ChatCompletionsClient(
-    endpoint=AZURE_OPENAI_API_URL,
-    credential=AzureKeyCredential(AZURE_OPENAI_API_KEY),
-    api_version="2024-05-01-preview"
-)
 
 def extract_json(text: str):
     start = text.find('{')
@@ -93,7 +103,6 @@ async def call_deepseek(prompt: str):
 def root():
     return {"message": "Job Application Assistant API is running!"}
 
-# Resume analyze endpoint (using Azure DeepSeek)
 @app.post("/api/resume/analyze")
 async def analyze_resume(data: ResumeRequest):
     prompt = f"""
@@ -115,8 +124,6 @@ Return ONLY a JSON object EXACTLY like this (no other text or explanation):
     """
 
     raw_output = await call_deepseek(prompt)
-
-    # Try extracting JSON from raw output
     json_text = extract_json(raw_output)
     if json_text:
         try:
@@ -142,30 +149,84 @@ Return ONLY a JSON object EXACTLY like this (no other text or explanation):
             ]
         }
 
-# Resume upload endpoint
-@app.post("/api/resume/upload")
-async def upload_resume(file: UploadFile = File(...)):
-    if file.filename.endswith(".pdf"):
-        with pdfplumber.open(BytesIO(await file.read())) as pdf:
-            text = "\n".join([page.extract_text() for page in pdf.pages if page.extract_text()])
-    else:
-        contents = await file.read()
-        try:
-            text = contents.decode("utf-8")
-        except Exception:
-            return {"filename": file.filename, "content_preview": "<Could not decode file contents>"}
+def split_sections(text: str):
+    pattern = re.compile(r'(education|work experience|professional experience|skills|projects|certifications|contact information|summary)', re.I)
+    splits = [(m.start(), m.group().lower()) for m in pattern.finditer(text)]
+    sections = {}
+    for i, (start, header) in enumerate(splits):
+        end = splits[i+1][0] if i+1 < len(splits) else len(text)
+        sections[header] = text[start:end].strip()
+    return sections
 
+def extract_contact_info(text: str):
+    email = re.search(r'[\w\.-]+@[\w\.-]+', text)
+    phone = re.search(r'(\+?\d{1,3}[-.\s]?)?(\(?\d{3}\)?[-.\s]?){1,2}\d{4}', text)
     return {
-        "filename": file.filename,
-        "content_preview": text[:300]
+        "email": email.group() if email else None,
+        "phone": phone.group() if phone else None
     }
 
-# Get all applications for dashboard
+def extract_education(text: str):
+    lines = text.split('\n')
+    education_entries = [
+        line.strip() for line in lines
+        if re.search(r'(bachelor|master|ph\.d|degree|university|college)', line, re.I)
+    ]
+    return "\n".join(education_entries)
+
+def extract_work_experience(text: str):
+    lines = text.split('\n')
+    jobs = [
+        line.strip() for line in lines
+        if re.search(r'(engineer|developer|manager|analyst|consultant|intern)', line, re.I)
+    ]
+    return "\n".join(jobs)
+
+def parse_resume(text: str):
+    sections = split_sections(text)
+    contact_info = extract_contact_info(text)
+    education = extract_education(sections.get('education', ''))
+    work_history = extract_work_experience(
+        sections.get('work experience', '') or sections.get('professional experience', '')
+    )
+
+    return {
+        "full_name": None,
+        "email": contact_info["email"],
+        "phone": contact_info["phone"],
+        "education": education,
+        "work_history": work_history
+    }
+
+@app.post("/api/resume/upload")
+async def upload_resume(file: UploadFile = File(...)):
+    if not file.filename.endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported")
+
+    file_bytes = await file.read()
+    with pdfplumber.open(BytesIO(file_bytes)) as pdf:
+        text = "\n".join([page.extract_text() or "" for page in pdf.pages])
+
+    parsed_data = parse_resume(text)
+
+    query = user_profiles.insert().values(
+        full_name=parsed_data["full_name"] or "Unknown",
+        email=parsed_data["email"],
+        phone=parsed_data["phone"],
+        education=parsed_data["education"],
+        work_history=parsed_data["work_history"]
+    )
+    record_id = await database.execute(query)
+
+    return {
+        "id": record_id,
+        "parsed_data": parsed_data
+    }
+
 @app.get("/api/dashboard")
 def get_dashboard():
     return {"applications": applications}
 
-# Update status of one application
 @app.post("/api/dashboard/update")
 def update_status(update: StatusUpdate):
     for app in applications:
@@ -173,21 +234,6 @@ def update_status(update: StatusUpdate):
             app["status"] = update.status
             return {"success": True, "updated": app}
     raise HTTPException(status_code=404, detail="Application not found")
-
-class UserProfile(BaseModel):
-    full_name: str
-    email: str
-    phone: str | None = None
-    work_history: str | None = None
-    education: str | None = None
-
-@app.on_event("startup")
-async def startup():
-    await database.connect()
-
-@app.on_event("shutdown")
-async def shutdown():
-    await database.disconnect()
 
 @app.post("/profile/")
 async def create_profile(profile: UserProfile):
