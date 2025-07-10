@@ -1,4 +1,4 @@
-# 🧠 AI Job Application Assistant
+# 🧠 AI Job Application Assistant (In Progress)
 
 An intelligent tool designed to streamline the job application process using automation, personalized content generation, and smart tracking.
 
