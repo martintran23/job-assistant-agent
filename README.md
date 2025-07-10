@@ -36,6 +36,7 @@ A centralized dashboard that helps users visualize and track the status of their
 
 ## 📂 Folder Structure
 
+```plaintext
 project-root/
 ├── backend/
 │ ├── scorer.py
