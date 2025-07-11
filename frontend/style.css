@@ -1,47 +1,115 @@
+/* === Global Theme === */
+body {
+  font-family: 'Georgia', 'Times New Roman', serif;
+  background-color: #fdf8f2; /* Ivory */
+  margin: 0;
+  padding: 2rem;
+  color: #4b3e2e;
+}
+
+h1, h2 {
+  color: #6c5433; /* Rich bronze/gold */
+  margin-bottom: 0.5rem;
+}
+
+input, textarea, select {
+  width: 100%;
+  padding: 10px;
+  margin-top: 8px;
+  margin-bottom: 16px;
+  border-radius: 6px;
+  border: 1px solid #d1bfa3;
+  font-size: 14px;
+  font-family: inherit;
+  background-color: #fffdf8;
+}
+
+textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+button {
+  background-color: #d9b65c; /* Light gold */
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+button:hover {
+  background-color: #c9a741;
+}
+
+hr {
+  border: none;
+  height: 1px;
+  background-color: #e0d7c6;
+  margin: 2rem 0;
+}
+
+/* === Dashboard Columns === */
 .dashboard-container {
   display: flex;
   gap: 2rem;
   margin-top: 1rem;
   align-items: flex-start;
+  flex-wrap: wrap;
 }
 
 .column {
   flex: 1;
-  min-width: 200px;
-  background-color: #f0f4f8;
-  border-radius: 8px;
+  min-width: 220px;
+  background-color: #fff;
+  border-radius: 10px;
   padding: 1rem;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-left: 4px solid #e0c48f;
+  transition: background 0.2s;
 }
 
 .column h3 {
-  margin-top: 0;
   text-align: center;
-  color: #333;
+  color: #4b3e2e;
 }
 
+.column.drag-over {
+  background-color: #fef5e6;
+}
+
+/* === Cards === */
 .app-card {
-  background-color: white;
-  padding: 0.5rem;
+  background-color: #fffefc;
+  padding: 0.75rem;
   margin: 0.5rem 0;
-  border-radius: 6px;
-  border-left: 4px solid #007bff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.app-status {
-  font-weight: bold;
-  color: #555;
+  border-radius: 8px;
+  border: 1px solid #e7dbc4;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
 }
 
 .app-card[draggable="true"] {
   cursor: grab;
 }
 
-.column {
-  transition: background 0.2s;
+/* === Result / Profile Section === */
+#uploadResult,
+#result,
+#profileDisplay {
+  background-color: #fffef9;
+  border: 1px solid #e5d8b4;
+  padding: 1rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+  white-space: pre-wrap;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.03);
 }
 
-.column.drag-over {
-  background-color: #e0f7fa;
+/* === Responsive === */
+@media (max-width: 768px) {
+  .dashboard-container {
+    flex-direction: column;
+  }
 }
