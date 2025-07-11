@@ -180,18 +180,19 @@ def extract_education(text: str):
 
 def extract_work_experience(text: str):
     lines = text.split('\n')
+    keywords = r'(engineer|developer|manager|analyst|consultant|intern|researcher|scientist|technician|designer)'
     experience_entries = []
     for i, line in enumerate(lines):
-        if re.search(r'(engineer|developer|manager|analyst|consultant|intern)', line, re.I):
-            context = "\n".join(lines[max(0, i-1):i+2])
+        if re.search(keywords, line, re.I):
+            context = "\n".join(lines[max(0, i-1):i+3])
             experience_entries.append(context.strip())
     return "\n\n".join(experience_entries)
 
 def extract_name(text: str):
     lines = text.strip().split("\n")
-    for line in lines:
+    for line in lines[:5]:
         clean = line.strip()
-        if re.match(r'^[A-Z][a-z]+ [A-Z][a-z]+$', clean):
+        if len(clean.split()) >= 2 and all(w[0].isupper() for w in clean.split() if w[0].isalpha()):
             return clean
     return None
 
