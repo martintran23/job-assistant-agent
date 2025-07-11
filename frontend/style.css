@@ -1,115 +1,93 @@
-/* === Global Theme === */
+/* Global Layout */
 body {
-  font-family: 'Georgia', 'Times New Roman', serif;
-  background-color: #fdf8f2; /* Ivory */
+  font-family: 'Georgia', serif;
+  background-color: #fdfdfb; /* soft off-white (more white than ivory) */
+  color: #333;
   margin: 0;
   padding: 2rem;
-  color: #4b3e2e;
+  line-height: 1.6;
 }
 
-h1, h2 {
-  color: #6c5433; /* Rich bronze/gold */
-  margin-bottom: 0.5rem;
+/* Headings */
+h1, h2, h3 {
+  color: #6c584c; /* muted Greek olive/gold tone */
 }
 
-input, textarea, select {
-  width: 100%;
-  padding: 10px;
-  margin-top: 8px;
-  margin-bottom: 16px;
-  border-radius: 6px;
-  border: 1px solid #d1bfa3;
-  font-size: 14px;
-  font-family: inherit;
-  background-color: #fffdf8;
-}
-
-textarea {
-  min-height: 120px;
-  resize: vertical;
-}
-
+/* Buttons */
 button {
-  background-color: #d9b65c; /* Light gold */
-  color: #fff;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 6px;
+  background-color: #f6eec7; /* light gold */
+  color: #333;
+  border: 1px solid #d6cda4;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
   font-weight: bold;
   cursor: pointer;
-  font-family: inherit;
+  transition: background 0.3s;
 }
 
 button:hover {
-  background-color: #c9a741;
+  background-color: #f0e4b3; /* slightly darker gold */
 }
 
-hr {
-  border: none;
-  height: 1px;
-  background-color: #e0d7c6;
-  margin: 2rem 0;
+/* Textareas & Inputs */
+textarea, input[type="email"], input[type="file"] {
+  width: 100%;
+  padding: 0.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  background-color: #ffffff;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
+  font-family: 'Georgia', serif;
 }
 
-/* === Dashboard Columns === */
+/* Dashboard Columns */
 .dashboard-container {
   display: flex;
   gap: 2rem;
   margin-top: 1rem;
   align-items: flex-start;
-  flex-wrap: wrap;
 }
 
 .column {
   flex: 1;
-  min-width: 220px;
-  background-color: #fff;
-  border-radius: 10px;
+  min-width: 200px;
+  background-color: #f9f9f9; /* light ivory-white */
+  border-radius: 8px;
   padding: 1rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border-left: 4px solid #e0c48f;
-  transition: background 0.2s;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
 }
 
 .column h3 {
   text-align: center;
-  color: #4b3e2e;
+  color: #6c584c;
 }
 
-.column.drag-over {
-  background-color: #fef5e6;
-}
-
-/* === Cards === */
+/* App Cards */
 .app-card {
-  background-color: #fffefc;
-  padding: 0.75rem;
+  background-color: #fff;
+  padding: 0.5rem;
   margin: 0.5rem 0;
-  border-radius: 8px;
-  border: 1px solid #e7dbc4;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  border-left: 4px solid #d4af37; /* antique gold */
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
+/* Drag/Drop Style */
 .app-card[draggable="true"] {
   cursor: grab;
 }
 
-/* === Result / Profile Section === */
-#uploadResult,
-#result,
-#profileDisplay {
-  background-color: #fffef9;
-  border: 1px solid #e5d8b4;
-  padding: 1rem;
-  border-radius: 8px;
-  margin-top: 1rem;
-  white-space: pre-wrap;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.03);
+.column.drag-over {
+  background-color: #fcf9ed;
 }
 
-/* === Responsive === */
-@media (max-width: 768px) {
-  .dashboard-container {
-    flex-direction: column;
-  }
+/* Profile Display */
+#profileDisplay {
+  background-color: #fff;
+  border: 1px solid #eee;
+  padding: 1rem;
+  border-radius: 6px;
+  margin-top: 1rem;
 }
