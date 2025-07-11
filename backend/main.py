@@ -151,7 +151,10 @@ Return ONLY a JSON object EXACTLY like this (no other text or explanation):
         }
 
 def split_sections(text: str):
-    pattern = re.compile(r'(education|work experience|professional experience|skills|projects|certifications|contact information|summary)', re.I)
+    pattern = re.compile(
+        r'(education|work experience|professional experience|experience|employment history|skills|projects|certifications|contact information|summary)',
+        re.I
+    )
     splits = [(m.start(), m.group().lower()) for m in pattern.finditer(text)]
     sections = {}
     for i, (start, header) in enumerate(splits):
@@ -177,22 +180,32 @@ def extract_education(text: str):
 
 def extract_work_experience(text: str):
     lines = text.split('\n')
-    jobs = [
-        line.strip() for line in lines
-        if re.search(r'(engineer|developer|manager|analyst|consultant|intern)', line, re.I)
-    ]
-    return "\n".join(jobs)
+    experience_entries = []
+    for i, line in enumerate(lines):
+        if re.search(r'(engineer|developer|manager|analyst|consultant|intern)', line, re.I):
+            context = "\n".join(lines[max(0, i-1):i+2])
+            experience_entries.append(context.strip())
+    return "\n\n".join(experience_entries)
+
+def extract_name(text: str):
+    lines = text.strip().split("\n")
+    for line in lines:
+        clean = line.strip()
+        if re.match(r'^[A-Z][a-z]+ [A-Z][a-z]+$', clean):
+            return clean
+    return None
 
 def parse_resume(text: str):
     sections = split_sections(text)
     contact_info = extract_contact_info(text)
     education = extract_education(sections.get('education', ''))
     work_history = extract_work_experience(
-        sections.get('work experience', '') or sections.get('professional experience', '')
+        sections.get('work experience', '') or sections.get('professional experience', '') or sections.get('experience', '')
     )
+    full_name = extract_name(text)
 
     return {
-        "full_name": None,
+        "full_name": full_name,
         "email": contact_info["email"],
         "phone": contact_info["phone"],
         "education": education,
@@ -210,7 +223,6 @@ async def upload_resume(file: UploadFile = File(...)):
 
     parsed_data = parse_resume(text)
 
-    # UPSERT logic to avoid duplicate emails
     insert_stmt = pg_insert(user_profiles).values(
         full_name=parsed_data["full_name"] or "Unknown",
         email=parsed_data["email"],
