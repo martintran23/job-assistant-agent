@@ -22,13 +22,21 @@
     <textarea id="resume" placeholder="Paste your resume here"></textarea>
     <textarea id="jd" placeholder="Paste job description here"></textarea>
     <button onclick="analyze()">Analyze</button>
-    <div id="result"></div> <!-- 🔼 Move this here for clarity -->
+    <div id="result"></div>
 
     <hr />
 
     <!-- 📋 Application Dashboard Section -->
     <h2>Application Dashboard</h2>
     <div id="dashboard" class="dashboard-container"></div>
+
+    <hr />
+
+    <!-- 👤 View Stored Profile Section -->
+    <h2>View Stored Profile</h2>
+    <input type="email" id="profileEmail" placeholder="Enter your email" />
+    <button onclick="loadProfile()">Load Profile</button>
+    <div id="profileDisplay"></div>
 
     <script src="script.js"></script>
 </body>

@@ -259,3 +259,11 @@ async def create_profile(profile: UserProfile):
     )
     last_record_id = await database.execute(query)
     return {**profile.model_dump(), "id": last_record_id}
+
+@app.get("/profile/{email}")
+async def get_profile(email: str):
+    query = user_profiles.select().where(user_profiles.c.email == email)
+    profile = await database.fetch_one(query)
+    if not profile:
+        raise HTTPException(status_code=404, detail="Profile not found")
+    return profile

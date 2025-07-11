@@ -59,6 +59,8 @@ async function uploadResume() {
 
     if (data.content_preview) {
       document.getElementById("uploadResult").innerText = `Preview:\n${data.content_preview}`;
+    } else if (data.parsed_data) {
+      document.getElementById("uploadResult").innerText = `Resume uploaded.\nParsed name: ${data.parsed_data.full_name}`;
     } else {
       document.getElementById("uploadResult").innerText = "Resume uploaded, but no preview available.";
     }
@@ -138,6 +140,32 @@ function handleDrop(event, newStatus) {
   if (draggedAppId !== null) {
     updateStatus(draggedAppId, newStatus);
     draggedAppId = null;
+  }
+}
+
+// === Load a User Profile by Email ===
+async function loadProfile() {
+  const email = document.getElementById("profileEmail").value;
+  if (!email) {
+    alert("Please enter an email");
+    return;
+  }
+
+  try {
+    const res = await fetch(`http://localhost:8000/profile/${email}`);
+    const profile = await res.json();
+
+    document.getElementById("profileDisplay").innerHTML = `
+      <h3>Profile Info</h3>
+      <p><strong>Name:</strong> ${profile.full_name}</p>
+      <p><strong>Email:</strong> ${profile.email}</p>
+      <p><strong>Phone:</strong> ${profile.phone || "N/A"}</p>
+      <p><strong>Education:</strong> <pre>${profile.education}</pre></p>
+      <p><strong>Work History:</strong> <pre>${profile.work_history}</pre></p>
+    `;
+  } catch (err) {
+    console.error("Error fetching profile:", err);
+    document.getElementById("profileDisplay").innerText = "Profile not found.";
   }
 }
 
